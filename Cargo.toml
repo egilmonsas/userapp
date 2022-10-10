@@ -1,0 +1,20 @@
+[package]
+name = "userapp"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "userapp"
+path = "src/main.rs"
+[lib]
+name = "userapp"
+path = "src/lib.rs"
+
+
+[dependencies]
+rocket = {git = "https://github.com/SergioBenitez/Rocket",features = ["uuid"]}
+rocket_db_pools = {git = "https://github.com/SergioBenitez/Rocket",  features = ["sqlx_postgres"]}
+sqlx = {version = "0.6.2", features = ["postgres","uuid", "runtime-tokio-rustls", "chrono"]}
+chrono = "0.4"
+uuid = {version = "1.2.1", features = ["v4"]}
