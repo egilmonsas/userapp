@@ -1,3 +1,4 @@
+pub mod bool_wrapper;
 pub mod our_date_time;
 pub mod pagination;
 pub mod photo_post;
