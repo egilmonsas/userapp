@@ -18,3 +18,8 @@ rocket_db_pools = {git = "https://github.com/SergioBenitez/Rocket",  features = 
 sqlx = {version = "0.6.2", features = ["postgres","uuid", "runtime-tokio-rustls", "chrono"]}
 chrono = "0.4"
 uuid = {version = "1.2.1", features = ["v4"]}
+zxcvbn = "2"
+regex= "1.5.4"
+ammonia = "3.1.2"
+argon2 = "0.3"
+rand_core = {version = "0.6", features = ["std"]}
