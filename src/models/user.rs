@@ -5,9 +5,10 @@ use super::pagination::{Pagination, DEFAULT_LIMIT};
 use super::user_status::UserStatus;
 use crate::fairings::db::DBConnection;
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
+use chrono::offset::Utc;
 use regex::Regex;
 use rocket::form::{self, Error as FormError, FromForm};
 use rocket_db_pools::sqlx::{Acquire, FromRow, PgConnection};
@@ -133,7 +134,62 @@ RETURNING *"#;
             .fetch_one(connection)
             .await?)
     }
-
+    pub async fn update<'r>(
+        db: &mut Connection<DBConnection>,
+        uuid: &'r str,
+        user: &'r EditedUser<'r>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let connection = db.acquire().await?;
+        let old_user = Self::find(connection, uuid).await?;
+        let now = OurDateTime(Utc::now());
+        let username = &(clean_html(user.username));
+        let description = &(user.description.map(|desc| clean_html(desc)));
+        let mut set_strings = vec![
+            "username = $1",
+            "email = $2",
+            "description = $3",
+            "updated_at = $4",
+        ];
+        let mut where_string = "$5";
+        let mut password_string = String::new();
+        let is_with_password = !user.old_password.is_empty();
+        if is_with_password {
+            let old_password_hash = PasswordHash::new(&old_user.password_hash)
+                .map_err(|_| "cannot read password hash")?;
+            let argon2 = Argon2::default();
+            argon2
+                .verify_password(user.password.as_bytes(), &old_password_hash)
+                .map_err(|_| "cannot confirm old password")?;
+            let salt = SaltString::generate(&mut OsRng);
+            let new_hash = argon2
+                .hash_password(user.password.as_bytes(), &salt)
+                .map_err(|_| "cannot create password hash")?;
+            password_string.push_str(new_hash.to_string().as_ref());
+            set_strings.push("password_hash = $5");
+            where_string = "$6";
+        }
+        let query_str = format!(
+            r#"
+            UPDATE users 
+            SET {} 
+            WHERE uuid = {} 
+            RETURNING
+            *"#,
+            set_strings.join(", "),
+            where_string,
+        );
+        let connection = db.acquire().await?;
+        let mut binded = sqlx::query_as::<_, Self>(&query_str)
+            .bind(username)
+            .bind(user.email)
+            .bind(description)
+            .bind(&now);
+        if is_with_password {
+            binded = binded.bind(&password_string);
+        }
+        let parsed_uuid = Uuid::parse_str(uuid)?;
+        Ok(binded.bind(parsed_uuid).fetch_one(connection).await?)
+    }
     pub fn to_html_string(&self) -> String {
         format!(
             r#"<div>UUID: {uuid}</div>
@@ -168,6 +224,22 @@ pub struct NewUser<'r> {
     pub description: Option<&'r str>,
 }
 
+#[derive(Debug, FromForm)]
+pub struct EditedUser<'r> {
+    #[field(name = "_METHOD")]
+    pub method: &'r str,
+    #[field(validate = len(5..20).or_else(msg!("name cannot be empty")))]
+    pub username: &'r str,
+    #[field(validate = validate_email().or_else(msg!("invalid email")))]
+    pub email: &'r str,
+    pub old_password: &'r str,
+    #[field(validate = skip_validate_password(self.old_password, self.password_confirmation))]
+    pub password: &'r str,
+    pub password_confirmation: &'r str,
+    #[field(default = "")]
+    pub description: Option<&'r str>,
+}
+
 fn validate_email(email: &str) -> form::Result<'_, ()> {
     const EMAIL_REGEX: &str = r#"(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])"#;
     let email_regex = Regex::new(EMAIL_REGEX).unwrap();
@@ -181,6 +253,20 @@ fn validate_password(password: &str) -> form::Result<'_, ()> {
     let entropy = zxcvbn(password, &[]);
     if entropy.is_err() || entropy.unwrap().score() < 3 {
         return Err(FormError::validation("weak password").into());
+    }
+    Ok(())
+}
+fn skip_validate_password<'v>(
+    password: &'v str,
+    old_password: &'v str,
+    password_confirmation: &'v str,
+) -> form::Result<'v, ()> {
+    if old_password.is_empty() {
+        return Ok(());
+    }
+    validate_password(password)?;
+    if password.ne(password_confirmation) {
+        return Err(FormError::validation("password confirmation mismatch").into());
     }
     Ok(())
 }

@@ -4,7 +4,8 @@ use rocket::{Build, Rocket};
 use rocket_db_pools::Database;
 use userapp::catchers;
 use userapp::fairings::db::DBConnection;
-use userapp::routes::{self, post, user};
+use userapp::routes::{self, post, user, user::update_user};
+
 #[launch]
 async fn rocket() -> Rocket<Build> {
     rocket::build()
