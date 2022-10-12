@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate rocket;
 use log::LevelFilter;
+use rocket::fs::relative;
+use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
 use rocket_db_pools::Database;
 use userapp::catchers;
@@ -50,10 +52,9 @@ async fn rocket() -> Rocket<Build> {
                 post::create_post,
                 post::delete_post,
                 routes::shutdown,
-                routes::favicon,
             ],
         )
-        .mount("/assets", routes![routes::assets])
+        .mount("/", FileServer::from(relative!("static")))
         .register(
             "/",
             catchers![

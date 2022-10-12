@@ -25,12 +25,3 @@ pub async fn favicon() -> NamedFile {
         .ok()
         .unwrap()
 }
-
-#[get("/<filename..>")]
-pub async fn assets(filename: PathBuf) -> Option<NamedFile> {
-    let mut filename = Path::new(relative!("static")).join(filename);
-    if filename.is_dir() {
-        filename.push("index.html");
-    }
-    NamedFile::open(filename).await.ok()
-}
