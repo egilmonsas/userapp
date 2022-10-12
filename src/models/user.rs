@@ -208,6 +208,15 @@ RETURNING *"#;
             updated_at = self.updated_at.0.to_rfc3339(),
         )
     }
+    pub async fn destroy(connection: &mut PgConnection, uuid: &str) -> Result<(), Box<dyn Error>> {
+        let parsed_uuid = Uuid::parse_str(uuid)?;
+        let query_str = "DELETE FROM users WHERE uuid =$1";
+        sqlx::query(query_str)
+            .bind(parsed_uuid)
+            .execute(connection)
+            .await?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, FromForm)]

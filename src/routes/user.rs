@@ -42,6 +42,24 @@ pub async fn get_user(
     html_string
         .push_str(format!(r#"<a href="/users/edit/{}">Edit User</a><br/>"#, user.uuid).as_ref());
     html_string.push_str(r#"<a href="/users">User List</a>"#);
+    html_string.push_str(
+        format!(
+            r#"<a href="/users/edit/{}">Edit
+ User</a><br/>"#,
+            user.uuid
+        )
+        .as_ref(),
+    );
+    html_string.push_str(
+        format!(
+            r#"<form accept-charset="UTF-8" action="/
+ users/delete/{}" autocomplete="off"
+ method="POST"><button type="submit"
+ value="Submit">Delete</button></form>"#,
+            user.uuid
+        )
+        .as_ref(),
+    );
     html_string.push_str(USER_HTML_SUFFIX);
     Ok(RawHtml(html_string))
 }
@@ -286,7 +304,34 @@ pub async fn patch_user<'r>(
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
     put_user(db, uuid, user_context).await
 }
-#[delete("/users/<_uuid>", format = "text/html")]
-pub async fn delete_user(mut _db: Connection<DBConnection>, _uuid: &str) -> HtmlResponse {
-    todo!("will implement later")
+
+#[delete("/users/<uuid>", format = "application/x-wwwform-urlencoded")]
+pub async fn delete_user(
+    mut db: Connection<DBConnection>,
+    uuid: &str,
+) -> Result<Flash<Redirect>, Flash<Redirect>> {
+    let connection = db.acquire().await.map_err(|_| {
+        Flash::error(
+            Redirect::to("/users"),
+            "<div>Something went wrong when deleting user</div>",
+        )
+    })?;
+    User::destroy(connection, uuid).await.map_err(|_| {
+        Flash::error(
+            Redirect::to("/users"),
+            "<div>Something went wrong when deleting user</div>",
+        )
+    })?;
+    Ok(Flash::success(
+        Redirect::to("/users"),
+        "<div>Successfully deleted user</div>",
+    ))
+}
+
+#[post("/users/delete/<uuid>", format = "application/xwww-form-urlencoded")]
+pub async fn delete_user_entry_point(
+    db: Connection<DBConnection>,
+    uuid: &str,
+) -> Result<Flash<Redirect>, Flash<Redirect>> {
+    delete_user(db, uuid).await
 }
