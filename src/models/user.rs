@@ -3,6 +3,7 @@ use super::clean_html;
 use super::our_date_time::OurDateTime;
 use super::pagination::{Pagination, DEFAULT_LIMIT};
 use super::user_status::UserStatus;
+use crate::errors::our_error::OurError;
 use crate::fairings::db::DBConnection;
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
@@ -30,13 +31,14 @@ pub struct User {
 }
 
 impl User {
-    pub async fn find(connection: &mut PgConnection, uuid: &str) -> Result<Self, Box<dyn Error>> {
-        let parsed_uuid = Uuid::parse_str(uuid)?;
+    pub async fn find(connection: &mut PgConnection, uuid: &str) -> Result<Self, OurError> {
+        let parsed_uuid = Uuid::parse_str(uuid).map_err(OurError::from_uuid_error)?;
         let query_str = "SELECT * FROM users WHERE uuid = $1";
         Ok(sqlx::query_as::<_, Self>(query_str)
             .bind(parsed_uuid)
             .fetch_one(connection)
-            .await?)
+            .await
+            .map_err(OurError::from_sqlx_error)?)
     }
 
     pub async fn find_all(
@@ -116,10 +118,14 @@ impl User {
         let description = &(new_user.description.map(|desc| clean_html(desc)));
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
-        let password_hash = argon2.hash_password(new_user.password.as_bytes(), &salt);
-        if password_hash.is_err() {
-            return Err("cannot create password hash".into());
-        }
+        let password_hash = argon2
+            .hash_password(new_user.password.as_bytes(), &salt)
+            .map_err(|e| {
+                OurError::new_internal_server_error(
+                    String::from("Something went wrong"),
+                    Some(Box::new(e)),
+                )
+            })?;
         let query_str = r#"INSERT INTO users
 (uuid, username, email, password_hash, description, status)
 VALUES
@@ -129,7 +135,7 @@ RETURNING *"#;
             .bind(uuid)
             .bind(username)
             .bind(new_user.email)
-            .bind(password_hash.unwrap().to_string())
+            .bind(password_hash.to_string())
             .bind(description)
             .bind(UserStatus::Inactive)
             .fetch_one(connection)

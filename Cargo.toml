@@ -21,5 +21,8 @@ uuid = {version = "1.2.1", features = ["v4"]}
 zxcvbn = "2"
 regex= "1.5.4"
 ammonia = "3.1.2"
-argon2 = "0.3"
+argon2 = {version = "0.3", features = ["std"]}
 rand_core = {version = "0.6", features = ["std"]}
+
+[profile.dev]
+panic = "abort"

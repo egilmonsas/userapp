@@ -27,6 +27,7 @@ async fn rocket() -> Rocket<Build> {
                 post::get_posts,
                 post::create_post,
                 post::delete_post,
+                routes::shutdown,
             ],
         )
         .mount("/assets", routes![routes::assets])
