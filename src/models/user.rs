@@ -120,9 +120,10 @@ impl User {
         if password_hash.is_err() {
             return Err("cannot create password hash".into());
         }
-        let query_str = r#"
-INSERT INTO users (uuid, username, email, password_hash, description, status)
-VALUES ($1, $2, $3, $4, $5, $6)
+        let query_str = r#"INSERT INTO users
+(uuid, username, email, password_hash, description, status)
+VALUES
+($1, $2, $3, $4, $5, $6)
 RETURNING *"#;
         Ok(sqlx::query_as::<_, Self>(query_str)
             .bind(uuid)
@@ -134,6 +135,7 @@ RETURNING *"#;
             .fetch_one(connection)
             .await?)
     }
+
     pub async fn update<'r>(
         db: &mut Connection<DBConnection>,
         uuid: &'r str,
@@ -158,7 +160,7 @@ RETURNING *"#;
                 .map_err(|_| "cannot read password hash")?;
             let argon2 = Argon2::default();
             argon2
-                .verify_password(user.password.as_bytes(), &old_password_hash)
+                .verify_password(user.old_password.as_bytes(), &old_password_hash)
                 .map_err(|_| "cannot confirm old password")?;
             let salt = SaltString::generate(&mut OsRng);
             let new_hash = argon2
@@ -169,12 +171,7 @@ RETURNING *"#;
             where_string = "$6";
         }
         let query_str = format!(
-            r#"
-            UPDATE users 
-            SET {} 
-            WHERE uuid = {} 
-            RETURNING
-            *"#,
+            r#"UPDATE users SET {} WHERE uuid = {} RETURNING *"#,
             set_strings.join(", "),
             where_string,
         );
@@ -190,6 +187,17 @@ RETURNING *"#;
         let parsed_uuid = Uuid::parse_str(uuid)?;
         Ok(binded.bind(parsed_uuid).fetch_one(connection).await?)
     }
+
+    pub async fn destroy(connection: &mut PgConnection, uuid: &str) -> Result<(), Box<dyn Error>> {
+        let parsed_uuid = Uuid::parse_str(uuid)?;
+        let query_str = "DELETE FROM users WHERE uuid = $1";
+        sqlx::query(query_str)
+            .bind(parsed_uuid)
+            .execute(connection)
+            .await?;
+        Ok(())
+    }
+
     pub fn to_html_string(&self) -> String {
         format!(
             r#"<div>UUID: {uuid}</div>
@@ -207,15 +215,6 @@ RETURNING *"#;
             created_at = self.created_at.0.to_rfc3339(),
             updated_at = self.updated_at.0.to_rfc3339(),
         )
-    }
-    pub async fn destroy(connection: &mut PgConnection, uuid: &str) -> Result<(), Box<dyn Error>> {
-        let parsed_uuid = Uuid::parse_str(uuid)?;
-        let query_str = "DELETE FROM users WHERE uuid =$1";
-        sqlx::query(query_str)
-            .bind(parsed_uuid)
-            .execute(connection)
-            .await?;
-        Ok(())
     }
 }
 
@@ -265,6 +264,7 @@ fn validate_password(password: &str) -> form::Result<'_, ()> {
     }
     Ok(())
 }
+
 fn skip_validate_password<'v>(
     password: &'v str,
     old_password: &'v str,

@@ -41,25 +41,12 @@ pub async fn get_user(
     html_string.push_str(&user.to_html_string());
     html_string
         .push_str(format!(r#"<a href="/users/edit/{}">Edit User</a><br/>"#, user.uuid).as_ref());
+    html_string.push_str(
+        format!(
+            r#"<form accept-charset="UTF-8" action="/users/delete/{}" autocomplete="off" method="POST"><button type="submit" value="Submit">Delete</button></form>"#, user.uuid
+        )
+        .as_ref());
     html_string.push_str(r#"<a href="/users">User List</a>"#);
-    html_string.push_str(
-        format!(
-            r#"<a href="/users/edit/{}">Edit
- User</a><br/>"#,
-            user.uuid
-        )
-        .as_ref(),
-    );
-    html_string.push_str(
-        format!(
-            r#"<form accept-charset="UTF-8" action="/
- users/delete/{}" autocomplete="off"
- method="POST"><button type="submit"
- value="Submit">Delete</button></form>"#,
-            user.uuid
-        )
-        .as_ref(),
-    );
     html_string.push_str(USER_HTML_SUFFIX);
     Ok(RawHtml(html_string))
 }
@@ -156,7 +143,7 @@ pub async fn create_user<'r>(
     let connection = db.acquire().await.map_err(|_| {
         Flash::error(
             Redirect::to("/users/new"),
-            "<div>Something went wrong when connecting to database</div>",
+            "<div>Something went wrong when creating user</div>",
         )
     })?;
     let user = User::create(connection, new_user).await.map_err(|_| {
@@ -190,37 +177,33 @@ pub async fn edit_user(
     }
     html_string.push_str(
         format!(
-            r#"<form accept-charset="UTF-8" action="/
-        users/{}" autocomplete="off" method="POST">
-       <input type="hidden" name="_METHOD" value="PUT"/>
-       <div>
+            r#"<form accept-charset="UTF-8" action="/users/{}" autocomplete="off" method="POST">
+    <input type="hidden" name="_METHOD" value="PUT"/>
+    <div>
         <label for="username">Username:</label>
         <input name="username" type="text" value="{}"/>
-       </div>
-       <div>
-       <label for="email">Email:</label>
-       <input name="email" type="email" value="{}"/>
-      </div>
-      <div>
-       <label for="old_password">Old password:</label>
-       <input name="old_password" type="password"/>
-      </div>
-      <div>
-       <label for="password">New password:</label>
-       <input name="password" type="password"/>
-      </div>
-      <div>
-       <label for="password_confirmation">Password
-       Confirmation:</label>
-       <input name="password_confirmation" type=
-       "password"/>
-      </div>
-      <div>
-       <label for="description">Tell us a little bit more
-       about yourself:</label>
- <textarea name="description">{}</textarea>
-</div>
-<button type="submit" value="Submit">Submit</button>
+    </div>
+    <div>
+        <label for="email">Email:</label>
+        <input name="email" type="email" value="{}"/>
+    </div>
+    <div>
+        <label for="old_password">Old password:</label>
+        <input name="old_password" type="password"/>
+    </div>
+    <div>
+        <label for="password">New password:</label>
+        <input name="password" type="password"/>
+    </div>
+    <div>
+        <label for="password_confirmation">Password Confirmation:</label>
+        <input name="password_confirmation" type="password"/>
+    </div>
+    <div>
+        <label for="description">Tell us a little bit more about yourself:</label>
+        <textarea name="description">{}</textarea>
+    </div>
+    <button type="submit" value="Submit">Submit</button>
 </form>"#,
             &user.uuid,
             &user.username,
@@ -235,7 +218,7 @@ pub async fn edit_user(
 
 #[post(
     "/users/<uuid>",
-    format = "application/x-www-formurlencoded",
+    format = "application/x-www-form-urlencoded",
     data = "<user_context>"
 )]
 pub async fn update_user<'r>(
@@ -271,7 +254,7 @@ pub async fn update_user<'r>(
 
 #[put(
     "/users/<uuid>",
-    format = "application/x-www-formurlencoded",
+    format = "application/x-www-form-urlencoded",
     data = "<user_context>"
 )]
 pub async fn put_user<'r>(
@@ -294,7 +277,7 @@ pub async fn put_user<'r>(
 
 #[patch(
     "/users/<uuid>",
-    format = "application/x-wwwform-urlencoded",
+    format = "application/x-www-form-urlencoded",
     data = "<user_context>"
 )]
 pub async fn patch_user<'r>(
@@ -305,7 +288,15 @@ pub async fn patch_user<'r>(
     put_user(db, uuid, user_context).await
 }
 
-#[delete("/users/<uuid>", format = "application/x-wwwform-urlencoded")]
+#[post("/users/delete/<uuid>", format = "application/x-www-form-urlencoded")]
+pub async fn delete_user_entry_point(
+    db: Connection<DBConnection>,
+    uuid: &str,
+) -> Result<Flash<Redirect>, Flash<Redirect>> {
+    delete_user(db, uuid).await
+}
+
+#[delete("/users/<uuid>", format = "application/x-www-form-urlencoded")]
 pub async fn delete_user(
     mut db: Connection<DBConnection>,
     uuid: &str,
@@ -326,12 +317,4 @@ pub async fn delete_user(
         Redirect::to("/users"),
         "<div>Successfully deleted user</div>",
     ))
-}
-
-#[post("/users/delete/<uuid>", format = "application/xwww-form-urlencoded")]
-pub async fn delete_user_entry_point(
-    db: Connection<DBConnection>,
-    uuid: &str,
-) -> Result<Flash<Redirect>, Flash<Redirect>> {
-    delete_user(db, uuid).await
 }
