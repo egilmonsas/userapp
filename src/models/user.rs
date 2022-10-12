@@ -44,7 +44,7 @@ impl User {
     pub async fn find_all(
         db: &mut Connection<DBConnection>,
         pagination: Option<Pagination>,
-    ) -> Result<(Vec<Self>, Option<Pagination>), Box<dyn Error>> {
+    ) -> Result<(Vec<Self>, Option<Pagination>), OurError> {
         if pagination.is_some() {
             return Self::find_all_with_pagination(db, &(pagination.unwrap())).await;
         } else {
@@ -54,21 +54,23 @@ impl User {
 
     async fn find_all_without_pagination(
         db: &mut Connection<DBConnection>,
-    ) -> Result<(Vec<Self>, Option<Pagination>), Box<dyn Error>> {
+    ) -> Result<(Vec<Self>, Option<Pagination>), OurError> {
         let query_str = "SELECT * FROM users ORDER BY created_at DESC LIMIT $1";
-        let connection = db.acquire().await?;
+        let connection = db.acquire().await.map_err(OurError::from_sqlx_error)?;
         let users = sqlx::query_as::<_, Self>(query_str)
             .bind(DEFAULT_LIMIT as i32)
             .fetch_all(connection)
-            .await?;
+            .await
+            .map_err(OurError::from_sqlx_error)?;
         let mut new_pagination: Option<Pagination> = None;
         if users.len() == DEFAULT_LIMIT {
             let query_str = "SELECT EXISTS(SELECT 1 FROM users WHERE created_at < $1 ORDER BY created_at DESC LIMIT 1)";
-            let connection = db.acquire().await?;
+            let connection = db.acquire().await.map_err(OurError::from_sqlx_error)?;
             let exists = sqlx::query_as::<_, BoolWrapper>(query_str)
                 .bind(&users.last().unwrap().created_at)
                 .fetch_one(connection)
-                .await?;
+                .await
+                .map_err(OurError::from_sqlx_error)?;
             if exists.0 {
                 new_pagination = Some(Pagination {
                     next: users.last().unwrap().created_at.to_owned(),
@@ -82,23 +84,25 @@ impl User {
     async fn find_all_with_pagination(
         db: &mut Connection<DBConnection>,
         pagination: &Pagination,
-    ) -> Result<(Vec<Self>, Option<Pagination>), Box<dyn Error>> {
+    ) -> Result<(Vec<Self>, Option<Pagination>), OurError> {
         let query_str =
             "SELECT * FROM users WHERE created_at < $1 ORDER BY created_at DESC LIMIT $2";
-        let connection = db.acquire().await?;
+        let connection = db.acquire().await.map_err(OurError::from_sqlx_error)?;
         let users = sqlx::query_as::<_, Self>(query_str)
             .bind(&pagination.next)
             .bind(pagination.limit as i32)
             .fetch_all(connection)
-            .await?;
+            .await
+            .map_err(OurError::from_sqlx_error)?;
         let mut new_pagination: Option<Pagination> = None;
         if users.len() == pagination.limit {
             let query_str = "SELECT EXISTS(SELECT 1 FROM users WHERE created_at < $1 ORDER BY created_at DESC LIMIT 1)";
-            let connection = db.acquire().await?;
+            let connection = db.acquire().await.map_err(OurError::from_sqlx_error)?;
             let exists = sqlx::query_as::<_, BoolWrapper>(query_str)
                 .bind(&users.last().unwrap().created_at)
                 .fetch_one(connection)
-                .await?;
+                .await
+                .map_err(OurError::from_sqlx_error)?;
             if exists.0 {
                 new_pagination = Some(Pagination {
                     next: users.last().unwrap().created_at.to_owned(),
@@ -112,7 +116,7 @@ impl User {
     pub async fn create<'r>(
         connection: &mut PgConnection,
         new_user: &'r NewUser<'r>,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, OurError> {
         let uuid = Uuid::new_v4();
         let username = &(clean_html(new_user.username));
         let description = &(new_user.description.map(|desc| clean_html(desc)));
@@ -139,15 +143,16 @@ RETURNING *"#;
             .bind(description)
             .bind(UserStatus::Inactive)
             .fetch_one(connection)
-            .await?)
+            .await
+            .map_err(OurError::from_sqlx_error)?)
     }
 
     pub async fn update<'r>(
         db: &mut Connection<DBConnection>,
         uuid: &'r str,
         user: &'r EditedUser<'r>,
-    ) -> Result<Self, Box<dyn Error>> {
-        let connection = db.acquire().await?;
+    ) -> Result<Self, OurError> {
+        let connection = db.acquire().await.map_err(OurError::from_sqlx_error)?;
         let old_user = Self::find(connection, uuid).await?;
         let now = OurDateTime(Utc::now());
         let username = &(clean_html(user.username));
@@ -162,16 +167,27 @@ RETURNING *"#;
         let mut password_string = String::new();
         let is_with_password = !user.old_password.is_empty();
         if is_with_password {
-            let old_password_hash = PasswordHash::new(&old_user.password_hash)
-                .map_err(|_| "cannot read password hash")?;
+            let old_password_hash = PasswordHash::new(&old_user.password_hash).map_err(|e| {
+                OurError::new_internal_server_error(String::from("Input error"), Some(Box::new(e)))
+            })?;
             let argon2 = Argon2::default();
             argon2
                 .verify_password(user.old_password.as_bytes(), &old_password_hash)
-                .map_err(|_| "cannot confirm old password")?;
+                .map_err(|e| {
+                    OurError::new_internal_server_error(
+                        String::from("Cannot confirm old password"),
+                        Some(Box::new(e)),
+                    )
+                })?;
             let salt = SaltString::generate(&mut OsRng);
             let new_hash = argon2
                 .hash_password(user.password.as_bytes(), &salt)
-                .map_err(|_| "cannot create password hash")?;
+                .map_err(|e| {
+                    OurError::new_internal_server_error(
+                        String::from("Something went wrong"),
+                        Some(Box::new(e)),
+                    )
+                })?;
             password_string.push_str(new_hash.to_string().as_ref());
             set_strings.push("password_hash = $5");
             where_string = "$6";
@@ -181,7 +197,7 @@ RETURNING *"#;
             set_strings.join(", "),
             where_string,
         );
-        let connection = db.acquire().await?;
+        let connection = db.acquire().await.map_err(OurError::from_sqlx_error)?;
         let mut binded = sqlx::query_as::<_, Self>(&query_str)
             .bind(username)
             .bind(user.email)
@@ -190,17 +206,22 @@ RETURNING *"#;
         if is_with_password {
             binded = binded.bind(&password_string);
         }
-        let parsed_uuid = Uuid::parse_str(uuid)?;
-        Ok(binded.bind(parsed_uuid).fetch_one(connection).await?)
+        let parsed_uuid = Uuid::parse_str(uuid).map_err(OurError::from_uuid_error)?;
+        Ok(binded
+            .bind(parsed_uuid)
+            .fetch_one(connection)
+            .await
+            .map_err(OurError::from_sqlx_error)?)
     }
 
-    pub async fn destroy(connection: &mut PgConnection, uuid: &str) -> Result<(), Box<dyn Error>> {
-        let parsed_uuid = Uuid::parse_str(uuid)?;
+    pub async fn destroy(connection: &mut PgConnection, uuid: &str) -> Result<(), OurError> {
+        let parsed_uuid = Uuid::parse_str(uuid).map_err(OurError::from_uuid_error)?;
         let query_str = "DELETE FROM users WHERE uuid = $1";
         sqlx::query(query_str)
             .bind(parsed_uuid)
             .execute(connection)
-            .await?;
+            .await
+            .map_err(OurError::from_sqlx_error)?;
         Ok(())
     }
 
