@@ -31,9 +31,7 @@ pub async fn get_user(
         .acquire()
         .await
         .map_err(|_| Status::InternalServerError)?;
-    let user = User::find(connection, uuid)
-        .await
-        .map_err(|_| Status::NotFound)?;
+    let user = User::find(connection, uuid).await.map_err(|e| e.status)?;
     let mut html_string = String::from(USER_HTML_PREFIX);
     if flash.is_some() {
         html_string.push_str(flash.unwrap().message());
@@ -307,12 +305,10 @@ pub async fn delete_user(
             "<div>Something went wrong when deleting user</div>",
         )
     })?;
-    User::destroy(connection, uuid).await.map_err(|_| {
-        Flash::error(
-            Redirect::to("/users"),
-            "<div>Something went wrong when deleting user</div>",
-        )
-    })?;
+    User::destroy(connection, uuid)
+        .await
+        .map_err(|e| Flash::error(Redirect::to("/users"), format!("<div>{}</div>", e)))?;
+
     Ok(Flash::success(
         Redirect::to("/users"),
         "<div>Successfully deleted user</div>",

@@ -1,4 +1,5 @@
 /target
 /migrations
 /rocket.toml
+/logs
 .env
