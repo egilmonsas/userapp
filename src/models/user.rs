@@ -12,13 +12,14 @@ use argon2::{
 use chrono::offset::Utc;
 use regex::Regex;
 use rocket::form::{self, Error as FormError, FromForm};
+use rocket::serde::Serialize;
 use rocket_db_pools::sqlx::{Acquire, FromRow, PgConnection};
 use rocket_db_pools::Connection;
 use std::error::Error;
 use uuid::Uuid;
 use zxcvbn::zxcvbn;
 
-#[derive(Debug, FromRow, FromForm)]
+#[derive(Debug, FromRow, FromForm, Serialize)]
 pub struct User {
     pub uuid: Uuid,
     pub username: String,

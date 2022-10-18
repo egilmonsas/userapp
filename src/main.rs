@@ -5,9 +5,11 @@ use rocket::fs::relative;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
 use rocket_db_pools::Database;
+use rocket_dyn_templates::Template;
 use userapp::catchers;
 use userapp::fairings::db::DBConnection;
 use userapp::routes::{self, post, user};
+
 fn setup_logger() {
     let (level, logger) = fern::Dispatch::new()
         .format(move |out, message, record| {
@@ -34,6 +36,7 @@ async fn rocket() -> Rocket<Build> {
     setup_logger();
     rocket::build()
         .attach(DBConnection::init())
+        .attach(Template::fairing())
         .mount(
             "/",
             routes![

@@ -1,10 +1,10 @@
 use rocket::fs::{relative, NamedFile};
 use rocket::http::Status;
-use rocket::response::content::RawHtml;
 pub mod post;
 pub mod user;
+use rocket_dyn_templates::Template;
 use std::path::{Path, PathBuf};
-type HtmlResponse = Result<RawHtml<String>, Status>;
+type HtmlResponse = Result<Template, Status>;
 
 use rocket::Shutdown;
 #[get("/shutdown")]
