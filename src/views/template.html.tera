@@ -3,8 +3,8 @@
     <head>
         <meta charset="utf-8" />
         <title>Our Application User</title>
-        <link href="/mini.css"rel="stylesheet">
-        <link rel="icon" type="image/png" href="/assets/favicon.png">
+        <link href="/assets/mini.css"rel="stylesheet">
+        <link rel="icon" type="image/png" href="/assets/favicon.ico">
         <meta name="viewport" content="width=device-width,initial-scale=1">
     </head>
     <body>

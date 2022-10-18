@@ -57,7 +57,7 @@ async fn rocket() -> Rocket<Build> {
                 routes::shutdown,
             ],
         )
-        .mount("/", FileServer::from(relative!("static")))
+        .mount("/assets", FileServer::from(relative!("static")))
         .register(
             "/",
             catchers![
