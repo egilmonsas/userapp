@@ -8,11 +8,11 @@ use crate::errors::our_error::OurError;
 use crate::fairings::db::DBConnection;
 use crate::models::our_date_time::OurDateTime;
 use crate::traits::DisplayPostContent;
+use rocket::fs::TempFile;
 use rocket::serde::Serialize;
 use rocket_db_pools::sqlx::{FromRow, PgConnection};
 use rocket_db_pools::{sqlx::Acquire, Connection};
 use uuid::Uuid;
-
 #[derive(Serialize)]
 pub struct ShowPost {
     pub uuid: String,
@@ -26,7 +26,10 @@ pub struct Post {
     pub content: String,
     pub created_at: OurDateTime,
 }
-
+#[derive(Debug, FromForm)]
+pub struct NewPost<'r> {
+    pub file: TempFile<'r>,
+}
 impl Post {
     pub async fn create(
         connection: &mut PgConnection,

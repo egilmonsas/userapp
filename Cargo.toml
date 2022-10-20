@@ -30,7 +30,6 @@ uuid = {version = "0.8.2", features = ["v4"]}
 zxcvbn = "2"
 base64 = {version = "0.13.0"}
 time = {version = "0.3", features = ["std"]}
-multer = "2.0.2"
-tokio-util = {version="0.6.9", features=["io"]}
+image = "0.24.0"
 [profile.dev]
 panic = "abort"
