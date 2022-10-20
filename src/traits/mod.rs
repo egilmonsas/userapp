@@ -1,3 +1,3 @@
 pub trait DisplayPostContent {
-    fn raw_html() -> String;
+    fn raw_html(&self) -> String;
 }
