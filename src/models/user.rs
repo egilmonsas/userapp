@@ -15,7 +15,6 @@ use rocket::form::{self, Error as FormError, FromForm};
 use rocket::serde::Serialize;
 use rocket_db_pools::sqlx::{Acquire, FromRow, PgConnection};
 use rocket_db_pools::Connection;
-use std::error::Error;
 use uuid::Uuid;
 use zxcvbn::zxcvbn;
 
@@ -248,6 +247,7 @@ RETURNING *"#;
 
 #[derive(Debug, FromForm)]
 pub struct NewUser<'r> {
+    pub authenticity_token: &'r str,
     #[field(validate = len(5..20).or_else(msg!("name cannot be empty")))]
     pub username: &'r str,
     #[field(validate = validate_email().or_else(msg!("invalid email")))]
@@ -262,6 +262,7 @@ pub struct NewUser<'r> {
 
 #[derive(Debug, FromForm)]
 pub struct EditedUser<'r> {
+    pub authenticity_token: &'r str,
     #[field(name = "_METHOD")]
     pub method: &'r str,
     #[field(validate = len(5..20).or_else(msg!("name cannot be empty")))]

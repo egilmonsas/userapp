@@ -1,6 +1,7 @@
 {% extends "template" %}
 {% block body %}
   <form accept-charset="UTF-8" action="{{ form_url }}" autocomplete="off" method="POST">
+    <input type="hidden" name="authenticity_token" value="{{ csrf_token }}"/>
     <fieldset>
       <legend>{{ legend }}</legend>
       {% if edit %}

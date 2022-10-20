@@ -21,13 +21,15 @@ fern = "0.6"
 log = "0.4"
 rand_core = {version = "0.6", features = ["std"]}
 regex = "1.5.4"
-rocket = {git = "https://github.com/SergioBenitez/Rocket", rev = "6bdd2f8", features = ["uuid"]}
+rocket = {git = "https://github.com/SergioBenitez/Rocket", rev = "6bdd2f8", features = ["uuid", "secrets"]}
 rocket_db_pools = {git = "https://github.com/SergioBenitez/Rocket", rev = "6bdd2f8", features = ["sqlx_postgres"]}
 rocket_dyn_templates = {git = "https://github.com/SergioBenitez/Rocket", rev = "6bdd2f8", features = ["tera"]}
 serde = "1.0.130"
 sqlx = {version = "0.5", features = ["postgres", "uuid", "runtime-tokio-rustls", "chrono"]}
 uuid = {version = "0.8.2", features = ["v4"]}
 zxcvbn = "2"
+base64 = {version = "0.13.0"}
+time = {version = "0.3", features = ["std"]}
 
 [profile.dev]
 panic = "abort"

@@ -7,6 +7,7 @@ use rocket::{Build, Rocket};
 use rocket_db_pools::Database;
 use rocket_dyn_templates::Template;
 use userapp::catchers;
+use userapp::fairings::csrf::Csrf;
 use userapp::fairings::db::DBConnection;
 use userapp::routes::{self, post, user};
 

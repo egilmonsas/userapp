@@ -3,7 +3,7 @@ use rocket::http::Status;
 pub mod post;
 pub mod user;
 use rocket_dyn_templates::Template;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 type HtmlResponse = Result<Template, Status>;
 
 use rocket::Shutdown;

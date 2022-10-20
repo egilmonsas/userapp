@@ -2984,6 +2984,7 @@ dependencies = [
  "ammonia",
  "argon2",
  "async-log",
+ "base64",
  "chrono",
  "fern",
  "log",
@@ -2994,6 +2995,7 @@ dependencies = [
  "rocket_dyn_templates",
  "serde",
  "sqlx",
+ "time 0.3.15",
  "uuid",
  "zxcvbn",
 ]
