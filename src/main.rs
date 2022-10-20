@@ -38,6 +38,7 @@ async fn rocket() -> Rocket<Build> {
     rocket::build()
         .attach(DBConnection::init())
         .attach(Template::fairing())
+        .attach(Csrf::new())
         .mount(
             "/",
             routes![
