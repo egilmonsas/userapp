@@ -9,10 +9,16 @@ use crate::fairings::db::DBConnection;
 use crate::models::our_date_time::OurDateTime;
 use crate::traits::DisplayPostContent;
 use rocket::form::FromForm;
+use rocket::serde::Serialize;
 use rocket_db_pools::sqlx::{FromRow, PgConnection};
 use rocket_db_pools::{sqlx::Acquire, Connection};
 use uuid::Uuid;
 
+#[derive(Serialize)]
+pub struct ShowPost {
+    pub uuid: String,
+    pub post_html: String,
+}
 #[derive(FromRow, FromForm)]
 pub struct Post {
     pub uuid: Uuid,
@@ -23,14 +29,27 @@ pub struct Post {
 }
 
 impl Post {
-    pub fn to_text(self) -> TextPost {
-        TextPost(self)
+    pub fn to_show_post<'a>(&'a self) -> ShowPost {
+        ShowPost {
+            uuid: self.uuid.to_string(),
+            post_html: self.to_media().raw_html(),
+        }
     }
-    pub fn to_photo(self) -> PhotoPost {
-        PhotoPost(self)
+    pub fn to_media<'a>(&'a self) -> Box<dyn DisplayPostContent + 'a> {
+        match self.post_type {
+            PostType::Text => Box::new((&self).to_text()),
+            PostType::Photo => Box::new(self.to_photo()),
+            PostType::Video => Box::new(self.to_video()),
+        }
     }
-    pub fn to_video(self) -> VideoPost {
-        VideoPost(self)
+    pub fn to_text(&self) -> TextPost {
+        TextPost::new(self)
+    }
+    pub fn to_photo(&self) -> PhotoPost {
+        PhotoPost::new(self)
+    }
+    pub fn to_video(&self) -> VideoPost {
+        VideoPost::new(self)
     }
 
     pub async fn find(connection: &mut PgConnection, uuid: &str) -> Result<Post, OurError> {

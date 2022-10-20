@@ -1,10 +1,13 @@
 use super::HtmlResponse;
 use crate::fairings::db::DBConnection;
-use crate::models::{pagination::Pagination, post::Post, post_type::PostType, user::User};
-use crate::traits::DisplayPostContent;
+use crate::models::{
+    pagination::Pagination,
+    post::{Post, ShowPost},
+    post_type::PostType,
+    user::User,
+};
 use rocket::form::Form;
 use rocket::http::Status;
-use rocket::serde::Serialize;
 use rocket::{delete, get, post};
 use rocket_db_pools::sqlx::Acquire;
 use rocket_db_pools::Connection;
@@ -30,27 +33,7 @@ pub async fn get_post(
     if post.user_uuid != user.uuid {
         return Err(Status::InternalServerError);
     }
-
-    #[derive(Serialize)]
-    struct ShowPost {
-        post_html: String,
-    }
-    #[derive(Serialize)]
-    struct Context {
-        user: User,
-        post: ShowPost,
-    }
-    let mut post_html = String::new();
-    match post.post_type {
-        PostType::Text => post_html = post.to_text().raw_html(),
-        PostType::Photo => post_html = post.to_photo().raw_html(),
-        PostType::Video => post_html = post.to_video().raw_html(),
-    }
-
-    let context = Context {
-        user,
-        post: ShowPost { post_html },
-    };
+    let context = context! { user, post: &(post.to_show_post())};
     Ok(Template::render("posts/show", context))
 }
 
@@ -64,26 +47,9 @@ pub async fn get_posts(
     let (posts, new_pagination) = Post::find_all(&mut db, user_uuid, pagination)
         .await
         .map_err(|e| e.status)?;
-    #[derive(Serialize)]
-    struct ShowPost {
-        uuid: String,
-        post_html: String,
-    }
-    let show_posts: Vec<ShowPost> = posts
-        .into_iter()
-        .map(|post| {
-            let uuid = post.uuid.to_string();
-            let mut post_html = String::new();
-            match post.post_type {
-                PostType::Text => post_html = post.to_text().raw_html(),
-                PostType::Photo => post_html = post.to_photo().raw_html(),
-                PostType::Video => post_html = post.to_video().raw_html(),
-            };
-            ShowPost { uuid, post_html }
-        })
-        .collect();
-    let context = context! {user, posts: show_posts, pagination:
-    new_pagination.map(|pg|pg.to_context())};
+    let show_posts: Vec<ShowPost> = posts.into_iter().map(|post| post.to_show_post()).collect();
+    let context = context! {user, posts: &show_posts,
+    pagination: new_pagination.map(|pg|pg.to_context())};
     Ok(Template::render("posts/index", context))
 }
 #[post("/users/<_user_uuid>/posts", format = "text/html", data = "<_upload>")]
