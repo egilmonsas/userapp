@@ -958,7 +958,7 @@ dependencies = [
  "indexmap",
  "slab",
  "tokio",
- "tokio-util",
+ "tokio-util 0.7.4",
  "tracing",
 ]
 
@@ -1466,7 +1466,7 @@ dependencies = [
  "mime",
  "spin 0.9.4",
  "tokio",
- "tokio-util",
+ "tokio-util 0.7.4",
  "version_check",
 ]
 
@@ -2065,7 +2065,7 @@ dependencies = [
  "time 0.3.15",
  "tokio",
  "tokio-stream",
- "tokio-util",
+ "tokio-util 0.7.4",
  "ubyte",
  "uuid",
  "version_check",
@@ -2723,6 +2723,20 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
+version = "0.6.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36943ee01a6d67977dd3f84a5a1d2efeb4ada3a1ae771cadfaa535d9d9fc6507"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-sink",
+ "log",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-util"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bb2e075f03b3d66d8d8785356224ba688d2906a371015e225beeb65ca92c740"
@@ -2988,6 +3002,7 @@ dependencies = [
  "chrono",
  "fern",
  "log",
+ "multer",
  "rand_core",
  "regex",
  "rocket",
@@ -2996,6 +3011,7 @@ dependencies = [
  "serde",
  "sqlx",
  "time 0.3.15",
+ "tokio-util 0.6.10",
  "uuid",
  "zxcvbn",
 ]

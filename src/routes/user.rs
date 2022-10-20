@@ -225,7 +225,11 @@ pub async fn patch_user<'r>(
     put_user(db, uuid, user_context, csrf_token).await
 }
 
-#[post("/users/delete/<uuid>", format = "application/x-www-form-urlencoded")]
+#[post(
+    "/users/delete/<uuid>",
+    format = "application/x-www-form-urlencoded",
+    rank = 2
+)]
 pub async fn delete_user_entry_point(
     db: Connection<DBConnection>,
     uuid: &str,

@@ -8,7 +8,6 @@ use crate::errors::our_error::OurError;
 use crate::fairings::db::DBConnection;
 use crate::models::our_date_time::OurDateTime;
 use crate::traits::DisplayPostContent;
-use rocket::form::FromForm;
 use rocket::serde::Serialize;
 use rocket_db_pools::sqlx::{FromRow, PgConnection};
 use rocket_db_pools::{sqlx::Acquire, Connection};
@@ -19,7 +18,7 @@ pub struct ShowPost {
     pub uuid: String,
     pub post_html: String,
 }
-#[derive(FromRow, FromForm)]
+#[derive(FromRow)]
 pub struct Post {
     pub uuid: Uuid,
     pub user_uuid: Uuid,
@@ -29,6 +28,29 @@ pub struct Post {
 }
 
 impl Post {
+    pub async fn create(
+        connection: &mut PgConnection,
+        user_uuid: &str,
+        post_type: PostType,
+        content: &str,
+    ) -> Result<Self, OurError> {
+        let parsed_uuid = Uuid::parse_str(user_uuid).map_err(OurError::from_uuid_error)?;
+        let uuid = Uuid::new_v4();
+        let query_str = r#"
+    INSERT INTO posts (uuid, user_uuid, post_type, content)
+    VALUES ($1, $2, $3, $4)
+    RETURNING *
+    "#;
+        Ok(sqlx::query_as::<_, Self>(query_str)
+            .bind(uuid)
+            .bind(parsed_uuid)
+            .bind(post_type)
+            .bind(content)
+            .fetch_one(connection)
+            .await
+            .map_err(OurError::from_sqlx_error)?)
+    }
+
     pub fn to_show_post<'a>(&'a self) -> ShowPost {
         ShowPost {
             uuid: self.uuid.to_string(),

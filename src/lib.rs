@@ -4,6 +4,7 @@ extern crate rocket;
 pub mod catchers;
 pub mod errors;
 pub mod fairings;
+pub mod guards;
 pub mod models;
 pub mod routes;
 pub mod states;
