@@ -9,7 +9,6 @@ use crate::models::{
 use image::codecs::jpeg::JpegEncoder;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, ImageEncoder};
-use rocket::data::{ByteUnit, Data};
 use rocket::form::Form;
 use rocket::http::Status;
 use rocket::request::FlashMessage;
@@ -20,6 +19,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::ops::Deref;
 use std::path::Path;
+
 #[get("/users/<user_uuid>/posts/<uuid>", format = "text/html")]
 pub async fn get_post(
     mut db: Connection<DBConnection>,
@@ -90,7 +90,7 @@ pub async fn create_post<'r>(
         return Err(create_err());
     }
     let ext = upload.file.content_type().unwrap().extension().unwrap();
-    let tmp_filename = format!("/tmp/{}.{}", &file_uuid, &ext);
+    let tmp_filename = format!("tmp/{}.{}", &file_uuid, &ext);
     upload
         .file
         .persist_to(tmp_filename)
