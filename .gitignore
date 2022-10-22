@@ -2,4 +2,5 @@
 /migrations
 /rocket.toml
 /logs
+/tmp
 .env

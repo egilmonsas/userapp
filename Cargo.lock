@@ -3280,6 +3280,7 @@ dependencies = [
  "serde",
  "sqlx",
  "time 0.3.15",
+ "tokio",
  "uuid",
  "zxcvbn",
 ]

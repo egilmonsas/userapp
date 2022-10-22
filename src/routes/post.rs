@@ -7,6 +7,7 @@ use crate::models::{
     user::User,
 };
 use image::codecs::jpeg::JpegEncoder;
+use image::error::ImageError;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, ImageEncoder};
 use rocket::form::Form;
@@ -15,10 +16,11 @@ use rocket::request::FlashMessage;
 use rocket::response::{Flash, Redirect};
 use rocket_db_pools::{sqlx::Acquire, Connection};
 use rocket_dyn_templates::{context, Template};
-use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::Cursor;
 use std::ops::Deref;
 use std::path::Path;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
 
 #[get("/users/<user_uuid>/posts/<uuid>", format = "text/html")]
 pub async fn get_post(
@@ -103,8 +105,10 @@ pub async fn create_post<'r>(
         let orig_path = upload.file.path().unwrap().to_string_lossy().to_string();
         let mut text_content = vec![];
         let _ = File::open(orig_path)
+            .await
             .map_err(|_| create_err())?
-            .read(&mut text_content)
+            .read_to_end(&mut text_content)
+            .await
             .map_err(|_| create_err())?;
         content.push_str(std::str::from_utf8(&text_content).unwrap());
     } else if mt.is_bmp() || mt.is_jpeg() || mt.is_png() || mt.is_gif() {
@@ -114,23 +118,36 @@ pub async fn create_post<'r>(
         content.push_str("/assets/");
         content.push_str(&dest_filename);
 
-        let orig_file = File::open(orig_path).map_err(|_| create_err())?;
-        let file_reader = BufReader::new(orig_file);
-        let image: DynamicImage = ImageReader::new(file_reader)
-            .with_guessed_format()
-            .map_err(|_| create_err())?
-            .decode()
-            .map_err(|_| create_err())?;
+        let orig_file = tokio::fs::read(orig_path).await.map_err(|_| create_err())?;
+        let read_buffer = Cursor::new(orig_file);
+        let encoded_result: Result<DynamicImage, ()> = tokio::task::spawn_blocking(|| {
+            Ok(ImageReader::new(read_buffer)
+                .with_guessed_format()
+                .map_err(|_| ())?
+                .decode()
+                .map_err(|_| ())?)
+        })
+        .await
+        .map_err(|_| create_err())?;
+        let image = encoded_result.map_err(|_| create_err())?;
 
-        let dest_path = Path::new(rocket::fs::relative!("static")).join(&dest_filename);
-        let mut file_writer = File::create(dest_path).map_err(|_| create_err())?;
-        JpegEncoder::new_with_quality(&mut file_writer, 75)
-            .write_image(
+        let write_result: Result<Vec<u8>, ImageError> = tokio::task::spawn_blocking(move || {
+            let mut write_buffer: Vec<u8> = vec![];
+            let mut write_cursor = Cursor::new(&mut write_buffer);
+            let _ = JpegEncoder::new_with_quality(&mut write_cursor, 75).write_image(
                 image.as_bytes(),
                 image.width(),
                 image.height(),
                 image.color(),
-            )
+            )?;
+            Ok(write_buffer)
+        })
+        .await
+        .map_err(|_| create_err())?;
+        let write_bytes = write_result.map_err(|_| create_err())?;
+        let dest_path = Path::new(rocket::fs::relative!("static")).join(&dest_filename);
+        tokio::fs::write(dest_path, &write_bytes)
+            .await
             .map_err(|_| create_err())?;
     } else if mt.is_svg() {
         post_type = PostType::Photo;
