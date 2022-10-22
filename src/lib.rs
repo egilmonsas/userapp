@@ -9,3 +9,4 @@ pub mod routes;
 pub mod states;
 pub mod traits;
 pub mod views;
+pub mod workers;

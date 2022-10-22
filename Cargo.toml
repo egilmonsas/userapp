@@ -32,6 +32,8 @@ base64 = {version = "0.13.0"}
 time = {version = "0.3", features = ["std"]}
 image = "0.24.0"
 tokio = {version = "1.16", features = ["fs", "rt"]}
+flume = "0.10.10"
+ffmpeg-cli = "0.1"
 
 [profile.dev]
 panic = "abort"

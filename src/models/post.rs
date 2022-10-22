@@ -175,6 +175,32 @@ LIMIT $3"#;
         }
         Ok((posts, new_pagination))
     }
+
+    pub async fn make_permanent(
+        connection: &mut PgConnection,
+        uuid: &str,
+        content: &str,
+    ) -> Result<Post, OurError> {
+        let parsed_uuid = Uuid::parse_str(uuid).map_err(OurError::from_uuid_error)?;
+        let query_str = String::from("UPDATE posts SET content = $1 WHERE uuid = $2 RETURNING *");
+        Ok(sqlx::query_as::<_, Self>(&query_str)
+            .bind(content)
+            .bind(&parsed_uuid)
+            .fetch_one(connection)
+            .await
+            .map_err(OurError::from_sqlx_error))?
+    }
+
+    pub async fn destroy(connection: &mut PgConnection, uuid: &str) -> Result<(), OurError> {
+        let parsed_uuid = Uuid::parse_str(uuid).map_err(OurError::from_uuid_error)?;
+        let query_str = "DELETE FROM posts WHERE uuid = $1";
+        sqlx::query(query_str)
+            .bind(parsed_uuid)
+            .execute(connection)
+            .await
+            .map_err(OurError::from_sqlx_error)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, FromForm)]
