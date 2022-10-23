@@ -1,6 +1,7 @@
 use rocket::fs::{relative, NamedFile};
 use rocket::http::Status;
 pub mod post;
+pub mod session;
 pub mod user;
 use rocket_dyn_templates::Template;
 use std::path::Path;

@@ -1,6 +1,7 @@
 use super::HtmlResponse;
 use crate::fairings::csrf::Token as CsrfToken;
 use crate::fairings::db::DBConnection;
+use crate::guards::auth::CurrentUser;
 use crate::models::{
     pagination::Pagination,
     user::{EditedUser, NewUser, User},
@@ -115,27 +116,21 @@ pub async fn create_user<'r>(
 
 #[get("/users/edit/<uuid>", format = "text/html")]
 pub async fn edit_user(
-    mut db: Connection<DBConnection>,
     uuid: &str,
+    current_user: CurrentUser,
     flash: Option<FlashMessage<'_>>,
     csrf_token: CsrfToken,
 ) -> HtmlResponse {
-    let connection = db
-        .acquire()
-        .await
-        .map_err(|_| Status::InternalServerError)?;
-    let user = User::find(connection, uuid)
-        .await
-        .map_err(|_| Status::NotFound)?;
     let flash_string = flash
         .map(|fl| format!("{}", fl.message()))
         .unwrap_or_else(|| "".to_string());
     let context = context! {
-        form_url: format!("/users/{}",&user.uuid ),
+        form_url: format!("/users/{}",uuid),
+        user: &current_user.user,
+        current_user: &current_user,
         edit: true,
         legend: "Edit User",
         flash: flash_string,
-        user,
         csrf_token: csrf_token,
     };
 
@@ -152,6 +147,7 @@ pub async fn update_user<'r>(
     uuid: &str,
     user_context: Form<Contextual<'r, EditedUser<'r>>>,
     csrf_token: CsrfToken,
+    current_user: CurrentUser,
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
     if user_context.value.is_none() {
         let error_message = format!(
@@ -170,8 +166,8 @@ pub async fn update_user<'r>(
     }
     let user_value = user_context.value.as_ref().unwrap();
     match user_value.method {
-        "PUT" => put_user(db, uuid, user_context, csrf_token).await,
-        "PATCH" => patch_user(db, uuid, user_context, csrf_token).await,
+        "PUT" => put_user(db, uuid, user_context, csrf_token, current_user).await,
+        "PATCH" => patch_user(db, uuid, user_context, csrf_token, current_user).await,
         _ => Err(Flash::error(
             Redirect::to(format!("/users/edit/{}", uuid)),
             "<div>Something went wrong when updating user</div>",
@@ -189,6 +185,7 @@ pub async fn put_user<'r>(
     uuid: &str,
     user_context: Form<Contextual<'r, EditedUser<'r>>>,
     csrf_token: CsrfToken,
+    _current_user: CurrentUser,
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
     let user_value = user_context.value.as_ref().unwrap();
     csrf_token
@@ -221,8 +218,9 @@ pub async fn patch_user<'r>(
     uuid: &str,
     user_context: Form<Contextual<'r, EditedUser<'r>>>,
     csrf_token: CsrfToken,
+    current_user: CurrentUser,
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
-    put_user(db, uuid, user_context, csrf_token).await
+    put_user(db, uuid, user_context, csrf_token, current_user).await
 }
 
 #[post(
@@ -233,14 +231,16 @@ pub async fn patch_user<'r>(
 pub async fn delete_user_entry_point(
     db: Connection<DBConnection>,
     uuid: &str,
+    current_user: CurrentUser,
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
-    delete_user(db, uuid).await
+    delete_user(db, uuid, current_user).await
 }
 
 #[delete("/users/<uuid>", format = "application/x-www-form-urlencoded")]
 pub async fn delete_user(
     mut db: Connection<DBConnection>,
     uuid: &str,
+    _current_user: CurrentUser,
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
     let connection = db.acquire().await.map_err(|_| {
         Flash::error(

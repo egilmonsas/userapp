@@ -18,6 +18,27 @@ use rocket_db_pools::Connection;
 use uuid::Uuid;
 use zxcvbn::zxcvbn;
 
+#[derive(FromForm)]
+pub struct Login<'r> {
+    pub username: &'r str,
+    pub password: &'r str,
+    pub authenticity_token: &'r str,
+}
+
+fn verify_password(ag: &Argon2, reference: &str, password: &str) -> Result<(), OurError> {
+    let reference_hash = PasswordHash::new(reference).map_err(|e| {
+        OurError::new_internal_server_error(String::from("Input error"), Some(Box::new(e)))
+    })?;
+    Ok(ag
+        .verify_password(password.as_bytes(), &reference_hash)
+        .map_err(|e| {
+            OurError::new_internal_server_error(
+                String::from("Cannot verify password"),
+                Some(Box::new(e)),
+            )
+        })?)
+}
+
 #[derive(Debug, FromRow, FromForm, Serialize)]
 pub struct User {
     pub uuid: Uuid,
@@ -113,6 +134,20 @@ impl User {
         Ok((users, new_pagination))
     }
 
+    pub async fn find_by_login<'r>(
+        connection: &mut PgConnection,
+        login: &'r Login<'r>,
+    ) -> Result<Self, OurError> {
+        let query_str = "SELECT * FROM users WHERE username = $1";
+        let user = sqlx::query_as::<_, Self>(query_str)
+            .bind(&login.username)
+            .fetch_one(connection)
+            .await
+            .map_err(OurError::from_sqlx_error)?;
+        let argon2 = Argon2::default();
+        verify_password(&argon2, &user.password_hash, &login.password)?;
+        Ok(user)
+    }
     pub async fn create<'r>(
         connection: &mut PgConnection,
         new_user: &'r NewUser<'r>,
@@ -167,18 +202,9 @@ RETURNING *"#;
         let mut password_string = String::new();
         let is_with_password = !user.old_password.is_empty();
         if is_with_password {
-            let old_password_hash = PasswordHash::new(&old_user.password_hash).map_err(|e| {
-                OurError::new_internal_server_error(String::from("Input error"), Some(Box::new(e)))
-            })?;
             let argon2 = Argon2::default();
-            argon2
-                .verify_password(user.old_password.as_bytes(), &old_password_hash)
-                .map_err(|e| {
-                    OurError::new_internal_server_error(
-                        String::from("Cannot confirm old password"),
-                        Some(Box::new(e)),
-                    )
-                })?;
+            verify_password(&argon2, &old_user.password_hash, user.old_password)?;
+
             let salt = SaltString::generate(&mut OsRng);
             let new_hash = argon2
                 .hash_password(user.password.as_bytes(), &salt)

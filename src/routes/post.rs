@@ -1,6 +1,7 @@
 use super::HtmlResponse;
 use crate::errors::our_error::OurError;
 use crate::fairings::db::DBConnection;
+use crate::guards::auth::CurrentUser;
 use crate::models::{
     pagination::Pagination,
     post::{NewPost, Post, ShowPost},
@@ -80,11 +81,12 @@ pub async fn get_posts(
     data = "<upload>",
     rank = 1
 )]
-pub async fn create_post<'r>(
+pub async fn create_post<'f>(
     mut db: Connection<DBConnection>,
     user_uuid: &str,
-    mut upload: Form<NewPost<'r>>,
+    mut upload: Form<NewPost<'f>>,
     tx: &State<Sender<Message>>,
+    _current_user: CurrentUser,
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
     let create_err = || {
         Flash::error(
@@ -97,7 +99,7 @@ pub async fn create_post<'r>(
         return Err(create_err());
     }
     let ext = upload.file.content_type().unwrap().extension().unwrap();
-    let tmp_filename = format!("tmp/{}.{}", &file_uuid, &ext);
+    let tmp_filename = format!("/tmp/{}.{}", &file_uuid, &ext);
     upload
         .file
         .persist_to(tmp_filename)
@@ -215,6 +217,7 @@ pub async fn delete_post(
     mut db: Connection<DBConnection>,
     user_uuid: &str,
     uuid: &str,
+    _current_user: CurrentUser,
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
     let delete_err = || {
         Flash::error(

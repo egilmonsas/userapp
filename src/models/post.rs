@@ -8,6 +8,7 @@ use super::video_post::VideoPost;
 use crate::errors::our_error::OurError;
 use crate::fairings::db::DBConnection;
 use crate::traits::DisplayPostContent;
+use rocket::form::{Form, FromForm};
 use rocket::fs::TempFile;
 use rocket::serde::Serialize;
 use rocket_db_pools::sqlx::{FromRow, PgConnection};
@@ -203,7 +204,7 @@ LIMIT $3"#;
     }
 }
 
-#[derive(Debug, FromForm)]
-pub struct NewPost<'r> {
-    pub file: TempFile<'r>,
+#[derive(FromForm)]
+pub struct NewPost<'f> {
+    pub file: TempFile<'f>,
 }

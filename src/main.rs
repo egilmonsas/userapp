@@ -13,7 +13,7 @@ use tokio::runtime::Handle;
 use userapp::catchers;
 use userapp::fairings::{csrf::Csrf, db::DBConnection};
 use userapp::models::worker::Message;
-use userapp::routes::{self, post, user};
+use userapp::routes::{self, post, session, user};
 use userapp::workers::video::process_video;
 
 #[derive(Deserialize)]
@@ -54,6 +54,9 @@ async fn rocket() -> Rocket<Build> {
                 user::patch_user,
                 user::delete_user,
                 user::delete_user_entry_point,
+                session::new,
+                session::create,
+                session::delete,
                 post::get_post,
                 post::get_posts,
                 post::create_post,
