@@ -11,6 +11,16 @@ pub const LOGIN_COOKIE_NAME: &str = "user_uuid";
 pub struct CurrentUser {
     pub user: User,
 }
+
+impl CurrentUser {
+    pub fn is(&self, uuid: &str) -> bool {
+        self.user.uuid.to_string() == uuid
+    }
+    pub fn is_not(&self, uuid: &str) -> bool {
+        !self.is(uuid)
+    }
+}
+
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for CurrentUser {
     type Error = ();

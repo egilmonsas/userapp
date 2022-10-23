@@ -53,7 +53,9 @@ impl OurError {
     pub fn new_internal_server_error(message: String, debug: Option<Box<dyn Error>>) -> Self {
         Self::new_error_with_status(Status::InternalServerError, message, debug)
     }
-
+    pub fn new_unauthorized_error(debug: Option<Box<dyn Error>>) -> Self {
+        Self::new_error_with_status(Status::Unauthorized, String::from("unauthorized"), debug)
+    }
     pub fn from_sqlx_error(e: sqlxError) -> Self {
         match e {
             sqlxError::RowNotFound => {

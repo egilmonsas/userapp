@@ -32,6 +32,7 @@ pub async fn get_post(
     mut db: Connection<DBConnection>,
     user_uuid: &str,
     uuid: &str,
+    current_user: Option<CurrentUser>,
 ) -> HtmlResponse {
     let connection = db
         .acquire()
@@ -49,7 +50,7 @@ pub async fn get_post(
         return Err(Status::InternalServerError);
     }
 
-    let context = context! { user, post: &(post.to_show_post())};
+    let context = context! { user, current_user, post: &(post.to_show_post())};
     Ok(Template::render("posts/show", context))
 }
 
@@ -59,6 +60,7 @@ pub async fn get_posts(
     flash: Option<FlashMessage<'_>>,
     user_uuid: &str,
     pagination: Option<Pagination>,
+    current_user: Option<CurrentUser>,
 ) -> HtmlResponse {
     let flash_message = flash.map(|fm| String::from(fm.message()));
     let user = User::find(&mut db, user_uuid).await.map_err(|e| e.status)?;
@@ -71,7 +73,8 @@ pub async fn get_posts(
     flash: flash_message,
     user,
     posts: &show_posts,
-    pagination: new_pagination.map(|pg|pg.to_context())};
+    pagination: new_pagination.map(|pg|pg.to_context()),
+    current_user,};
     Ok(Template::render("posts/index", context))
 }
 
@@ -86,7 +89,7 @@ pub async fn create_post<'f>(
     user_uuid: &str,
     mut upload: Form<NewPost<'f>>,
     tx: &State<Sender<Message>>,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
     let create_err = || {
         Flash::error(
@@ -95,6 +98,9 @@ pub async fn create_post<'f>(
         )
     };
     let file_uuid = uuid::Uuid::new_v4().to_string();
+    if current_user.is_not(user_uuid) {
+        return Err(create_err());
+    }
     if upload.file.content_type().is_none() {
         return Err(create_err());
     }
@@ -217,7 +223,7 @@ pub async fn delete_post(
     mut db: Connection<DBConnection>,
     user_uuid: &str,
     uuid: &str,
-    _current_user: CurrentUser,
+    current_user: CurrentUser,
 ) -> Result<Flash<Redirect>, Flash<Redirect>> {
     let delete_err = || {
         Flash::error(
@@ -225,6 +231,9 @@ pub async fn delete_post(
             "Something went wrong when deleting post",
         )
     };
+    if current_user.is_not(user_uuid) {
+        return Err(delete_err());
+    }
     let connection = db.acquire().await.map_err(|_| delete_err())?;
     let post = Post::find(connection, uuid)
         .await

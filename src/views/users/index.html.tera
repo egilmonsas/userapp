@@ -9,11 +9,12 @@
         </div>
         {% include "users/_user" %}
         <a href="/users/{{ user.uuid }}" class="button">See User</a>
-        <a href="/users/edit/{{ user.uuid }}" class="button">Edit User</a>
+        {% if current_user and current_user.user.uuid == user.uuid %}
+             <a href="/users/edit/{{user.uuid}}" class="button">Edit User</a>
+        {% endif %}
     </div>
     {% endfor %}
     {% if pagination %}
     <a href="/users?pagination.next={{pagination.next}}&pagination.limit={{pagination.limit}}" class="button">Next</a>
     {% endif %}
-    <a href="/users/new" class="button">New user</a>
 {% endblock %}
