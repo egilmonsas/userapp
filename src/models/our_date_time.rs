@@ -1,9 +1,9 @@
 use chrono::{offset::Utc, DateTime, TimeZone};
 use rocket::data::ToByteUnit;
 use rocket::form::{self, DataField, FromFormField, ValueField};
-use rocket::serde::Serialize;
+use rocket::serde::{Deserialize, Serialize};
 
-#[derive(Debug, sqlx::Type, Clone, Serialize)]
+#[derive(Debug, sqlx::Type, Clone, Serialize, Deserialize)]
 #[sqlx(transparent)]
 pub struct OurDateTime(pub DateTime<Utc>);
 #[rocket::async_trait]

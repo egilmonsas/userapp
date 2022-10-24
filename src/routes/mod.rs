@@ -1,5 +1,6 @@
 use rocket::fs::{relative, NamedFile};
 use rocket::http::Status;
+pub mod api;
 pub mod post;
 pub mod session;
 pub mod user;

@@ -13,7 +13,7 @@ use tokio::runtime::Handle;
 use userapp::catchers;
 use userapp::fairings::{csrf::Csrf, db::DBConnection};
 use userapp::models::worker::Message;
-use userapp::routes::{self, post, session, user};
+use userapp::routes::{self, api, post, session, user};
 use userapp::workers::video::process_video;
 
 #[derive(Deserialize)]
@@ -65,6 +65,7 @@ async fn rocket() -> Rocket<Build> {
             ],
         )
         .mount("/assets", FileServer::from(relative!("static")))
+        .mount("/api", routes![api::users])
         .register(
             "/",
             catchers![

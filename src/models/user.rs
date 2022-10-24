@@ -44,6 +44,7 @@ pub struct User {
     pub uuid: Uuid,
     pub username: String,
     pub email: String,
+    #[serde(skip_serializing)]
     pub password_hash: String,
     pub description: Option<String>,
     pub status: UserStatus,
@@ -333,4 +334,12 @@ fn skip_validate_password<'v>(
         return Err(FormError::validation("password confirmation mismatch").into());
     }
     Ok(())
+}
+
+#[derive(Serialize)]
+pub struct UsersWrapper {
+    pub users: Vec<User>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub pagination: Option<Pagination>,
 }

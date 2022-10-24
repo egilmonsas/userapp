@@ -1,10 +1,11 @@
 use rocket::http::Status;
+use rocket::serde::{Serialize, Serializer};
+use serde::ser::SerializeStruct;
 use sqlx::Error as sqlxError;
 use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 use uuid::Error as uuidError;
-
 #[derive(Debug)]
 pub struct OurError {
     pub status: Status,
@@ -26,7 +27,17 @@ impl Error for OurError {
         None
     }
 }
-
+impl Serialize for OurError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("OurError", 2)?;
+        state.serialize_field("status", &self.status.code)?;
+        state.serialize_field("message", &self.message)?;
+        state.end()
+    }
+}
 impl OurError {
     fn new_error_with_status(
         status: Status,

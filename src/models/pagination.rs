@@ -1,8 +1,8 @@
 use super::our_date_time::OurDateTime;
-use rocket::serde::Serialize;
+use rocket::serde::{Deserialize, Serialize};
 pub const DEFAULT_LIMIT: usize = 10;
 
-#[derive(FromForm)]
+#[derive(FromForm, Serialize, Deserialize)]
 pub struct Pagination {
     pub next: OurDateTime,
     pub limit: usize,
