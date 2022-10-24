@@ -10,13 +10,59 @@ use argon2::{
     Argon2,
 };
 use chrono::offset::Utc;
+use hmac::{Hmac, Mac};
+use jwt::SignWithKey;
 use regex::Regex;
 use rocket::form::{self, Error as FormError, FromForm};
-use rocket::serde::Serialize;
+use rocket::serde::{Deserialize, Serialize};
 use rocket_db_pools::sqlx::{Acquire, FromRow, PgConnection};
 use rocket_db_pools::Connection;
+use sha2::Sha256;
+use std::collections::BTreeMap;
 use uuid::Uuid;
 use zxcvbn::zxcvbn;
+
+#[derive(Debug, Deserialize)]
+pub struct JWTLogin<'r> {
+    pub username: &'r str,
+    pub password: &'r str,
+}
+#[derive(Serialize)]
+pub struct Auth {
+    pub token: String,
+}
+impl<'r> JWTLogin<'r> {
+    pub async fn authenticate(
+        &self,
+        connection: &mut PgConnection,
+        secret: &'r str,
+    ) -> Result<Auth, OurError> {
+        let auth_error =
+            || OurError::new_bad_request_error(String::from("Cannot verify password"), None);
+        let user = User::find_by_login(
+            connection,
+            &Login {
+                username: self.username,
+                password: self.password,
+                authenticity_token: "",
+            },
+        )
+        .await
+        .map_err(|_| auth_error())?;
+        verify_password(&Argon2::default(), &user.password_hash, self.password)?;
+        let user_uuid = &user.uuid.to_string();
+
+        let key: Hmac<Sha256> =
+            Hmac::new_from_slice(secret.as_bytes()).map_err(|_| auth_error())?;
+        let mut claims = BTreeMap::new();
+        claims.insert("user_uuid", user_uuid);
+
+        let token = claims.sign_with_key(&key).map_err(|_| auth_error())?;
+        Ok(Auth {
+            token: token.as_str().to_string(),
+        })
+    }
+}
 
 #[derive(FromForm)]
 pub struct Login<'r> {

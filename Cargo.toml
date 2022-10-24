@@ -34,6 +34,9 @@ image = "0.24.0"
 tokio = {version = "1.16", features = ["fs", "rt"]}
 flume = "0.10.10"
 ffmpeg-cli = "0.1"
+hmac = "0.12.1"
+jwt = "0.16.0"
+sha2 = "0.10.2"
 
 [profile.dev]
 panic = "abort"

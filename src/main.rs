@@ -14,11 +14,13 @@ use userapp::catchers;
 use userapp::fairings::{csrf::Csrf, db::DBConnection};
 use userapp::models::worker::Message;
 use userapp::routes::{self, api, post, session, user};
+use userapp::states::JWToken;
 use userapp::workers::video::process_video;
 
 #[derive(Deserialize)]
 struct Config {
     databases: Databases,
+    jwt_secret: String,
 }
 
 #[derive(Deserialize)]
@@ -65,7 +67,10 @@ async fn rocket() -> Rocket<Build> {
             ],
         )
         .mount("/assets", FileServer::from(relative!("static")))
-        .mount("/api", routes![api::users])
+        .mount(
+            "/api",
+            routes![api::users, api::login, api::authenticated_users],
+        )
         .register(
             "/",
             catchers![
@@ -79,7 +84,10 @@ async fn rocket() -> Rocket<Build> {
         .figment()
         .extract()
         .expect("Incorrect Rocket.toml configuration");
-
+    let jwt_secret = JWToken {
+        secret: String::from(config.jwt_secret.clone()),
+    };
+    let final_rocket = our_rocket.manage(jwt_secret);
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&config.databases.main_connection.url)
@@ -93,7 +101,7 @@ async fn rocket() -> Rocket<Build> {
         let mut connection = handle.block_on(get_connection);
         let _ = process_video(&mut connection, wm);
     });
-    our_rocket
+    final_rocket
 }
 
 fn setup_logger() {
