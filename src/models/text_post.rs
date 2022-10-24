@@ -14,3 +14,26 @@ impl<'a> DisplayPostContent for TextPost<'a> {
         format!("<p>{}</p>", self.0.content)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::our_date_time::OurDateTime;
+    use crate::models::post_type::PostType;
+    use chrono::{offset::Utc, TimeZone};
+    use uuid::Uuid;
+    #[test]
+    fn test_raw_html() {
+        let created_at = OurDateTime(Utc.timestamp_nanos(1431648000000000));
+        let post = Post {
+            uuid: Uuid::new_v4(),
+            user_uuid: Uuid::new_v4(),
+            post_type: PostType::Text,
+            content: String::from("hello"),
+            created_at: created_at,
+        };
+        let text_post = TextPost::new(&post);
+        assert_eq!(text_post.raw_html(), String::from("<p>hello</p>"));
+        assert_ne!(text_post.raw_html(), String::from("<img>hello</img>"));
+    }
+}
