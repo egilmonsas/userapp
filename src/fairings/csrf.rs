@@ -42,7 +42,7 @@ impl<'r> FromRequest<'r> for Token {
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         match request.get_csrf_token() {
             None => Outcome::Failure((Status::Forbidden, ())),
-            Some(token) => Outcome::Success(Self(base64::encode(token))),
+            Some(token) => Outcome::Success(Self(base64::encode_config(token, base64::URL_SAFE))),
         }
     }
 }
